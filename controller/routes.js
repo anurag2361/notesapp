@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose");
@@ -129,6 +130,33 @@ router.post("/:userid/:noteid/deletenote", (request, response) => {
                         });
                 }
             }
+        }
+    });
+});
+
+router.post("/:userid/:postid/update", (request, response) => {
+    User.findById(request.params.userid, (err) => {
+        if (err) {
+            return response.statusCode(500).end("Can't find user");
+        } else {
+            Post.findById(request.params.postid, (err, postdoc) => {
+                if (err) {
+                    return response.statusCode(500).end("Can't find post");
+                } else {
+                    postdoc.updateOne({
+                        title: request.body.title,
+                        postText: request.body.postText,
+                        postImageLink: request.body.postImageLink,
+                        postVideoLink: request.body.postVideoLink
+                    }, (err) => {
+                        if (err) {
+                            response.end(err);
+                        } else {
+                            response.send({ message: "Post updated" });
+                        }
+                    });
+                }
+            });
         }
     });
 });
