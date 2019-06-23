@@ -4,7 +4,6 @@ const router = express.Router();
 const mongoose = require("mongoose");
 const User = mongoose.model('User');
 const Post = mongoose.model('Post');
-const asyncLib = require("async")
 
 router.post("/createuser", (request, response) => {
     User.findOne({ name: request.body.name }, (err, user) => {
@@ -37,27 +36,17 @@ router.post("/:userid/createnote", (request, response) => {
                 postImageLink: request.body.imgLink || null,
                 postVideoLink: request.body.vidLink || null
             });
-            newPost.save().then(post => {
-                asyncLib.series([
-                    function (callback) {
-                        user.postID.push({ postID: post._id, title: post.title });
-                        user.save().then(doc => {
-                            response.send(doc);
-                        }).catch(err => {
-                            console.log("Cant save postid to user.");
-                        })
-                        callback(null, "update done.")
-                    },
-                    function (callback) {
-                        response.send(post);
-                        callback(null, "response sent.");
-                    }
-                ],
-                    function (err, result) {
-                        console.log(result);
-                    });
+            newPost.save().then(async (post) => {
+                await user.postID.push({ postID: post._id, title: post.title });
+                await user.save().then(doc => {
+                    response.send(doc);
+                }).catch(err => {
+                    console.log("Cant save postid to user. Err: " + err);
+                });
+                await response.send(post);
+
             }).catch(err => {
-                response.status(400).json({ message: "Unable to save post. Error " + err });
+                response.end("Unable to save post. Error " + err);
             });
         }
     });
@@ -98,36 +87,25 @@ router.get("/:userid/:noteid/viewnote", (request, response) => {
 });
 
 router.post("/:userid/:noteid/deletenote", (request, response) => {
-    User.findById(request.params.userid, (err, user) => {
+    User.findById(request.params.userid, async (err, user) => {
         if (err) {
             return response.statusCode(400).end("Can't find user.");
         } else {
             for (let id = 0; id < user.postID.length; id++) {
                 if (JSON.stringify(request.params.noteid) === JSON.stringify(user.postID[id].postID)) {
-                    asyncLib.series([
-                        function (callback) {
-                            Post.deleteOne({ '_id': request.params.noteid }, (err) => {
-                                if (err) {
-                                    return response.statusCode(400).end("Can't delete post.");
-                                } else {
-                                    console.log("Post deleted");
-                                }
-                            });
-                            callback(null, "delete one");
-                        },
-                        function (callback) {
-                            User.updateOne({ "_id": user._id }, { $pull: { postID: { postID: request.params.noteid } } }, (err, data) => {
-                                if (err) {
-                                    return response.status(500).json({ 'error': 'error in deleting id' });
-                                }
-                                response.json(data);
-                            });
-                            callback(null, "delete two");
+                    await Post.deleteOne({ '_id': request.params.noteid }, (err) => {
+                        if (err) {
+                            return response.end("Can't delete post.");
+                        } else {
+                            console.log("Post deleted");
                         }
-                    ],
-                        function (err, result) {
-                            console.log(result);
-                        });
+                    });
+                    await User.updateOne({ "_id": user._id }, { $pull: { postID: { postID: request.params.noteid } } }, (err, data) => {
+                        if (err) {
+                            return response.end('error in deleting id');
+                        }
+                        response.json(data);
+                    });
                 }
             }
         }
@@ -139,11 +117,11 @@ router.post("/:userid/:postid/update", (request, response) => {
         if (err) {
             return response.statusCode(500).end("Can't find user");
         } else {
-            Post.findById(request.params.postid, (err, postdoc) => {
+            Post.findById(request.params.postid, async (err, postdoc) => {
                 if (err) {
                     return response.statusCode(500).end("Can't find post");
                 } else {
-                    postdoc.updateOne({
+                    await postdoc.updateOne({
                         title: request.body.title,
                         postText: request.body.postText,
                         postImageLink: request.body.postImageLink,
@@ -153,6 +131,13 @@ router.post("/:userid/:postid/update", (request, response) => {
                             response.end(err);
                         } else {
                             response.send({ message: "Post updated" });
+                        }
+                    });
+                    await User.updateOne({ '_id': request.params.userid, "postID.postID": request.params.postid }, { $set: { "postID.$.title": request.body.title } }, { upsert: false }, (err) => {
+                        if (err) {
+                            return response.end("Title not updated in user");
+                        } else {
+                            console.log("title updated");
                         }
                     });
                 }
