@@ -24,6 +24,16 @@ router.post("/createuser", (request, response) => {
     });
 });
 
+router.get("/allusers", (req, res) => {
+    User.find({}, (err, user) => {
+        if (err) {
+            console.error(err);
+        } else {
+            res.send(user);
+        }
+    });
+});
+
 router.post("/:userid/createnote", (request, response) => {
     User.findById(request.params.userid, (err, user) => {
         if (err) {
@@ -57,7 +67,7 @@ router.get("/:userid/allnotes", (request, response) => {
         if (err) {
             response.json({ message: "Can't find user." });
         } else {
-            response.send(user);
+                response.send(user.postID);
         }
     });
 });
