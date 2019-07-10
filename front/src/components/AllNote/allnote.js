@@ -23,7 +23,6 @@ class AllNote extends Component {
                 pArray.push(response.data[i]);
             }
             this.setState({ postArray: pArray });
-            console.log(this.state.postArray);
         }).catch(err => {
             console.log(err);
         });
@@ -42,6 +41,7 @@ class AllNote extends Component {
         axios.post("/user/" + id + "/createnote", { title, postText })
             .then(response => {
                 console.log(response);
+                window.location.reload();
             }).catch(error => {
                 console.log(error);
             });
